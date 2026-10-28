@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src https://script.google.com https://script.googleusercontent.com; object-src 'none'; base-uri 'self'; form-action 'none'">
+  <meta name="theme-color" content="#2F6FD6">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="血糖値記録">
+  <title>血糖値記録</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.png">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="topbar" id="topbar" hidden>
+    <button class="icon-btn" id="btn-back" aria-label="戻る" hidden>
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <h1 id="page-title">血糖値記録</h1>
+    <button class="icon-btn" id="btn-reload" aria-label="再読み込み">
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <button class="icon-btn" id="btn-logout" aria-label="ログアウト">
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l-5-5 5-5M5 12h11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+  </header>
+
+  <main id="main">
+    <!-- ログイン -->
+    <section class="view" id="view-login" hidden>
+      <div class="login-box">
+        <div class="login-logo" aria-hidden="true">
+          <svg viewBox="0 0 48 48" width="56" height="56"><path d="M24 5C24 5 10 21 10 30a14 14 0 0 0 28 0C38 21 24 5 24 5z" fill="#2F6FD6"/><path d="M17 31h5l2-5 3 9 2-4h3" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <h1>血糖値記録</h1>
+        <form id="login-form" autocomplete="on">
+          <label class="field">
+            <span>合言葉</span>
+            <input type="password" id="login-pass" autocomplete="current-password" required>
+          </label>
+          <button type="submit" class="btn primary block" id="login-btn">ログイン</button>
+        </form>
+        <p class="hint">一度ログインすると、この端末では90日間自動でログインします。</p>
+      </div>
+    </section>
+
+    <!-- ホーム -->
+    <section class="view" id="view-home" hidden>
+      <div class="home-grid">
+        <div class="home-side">
+          <div class="card quick">
+            <div class="quick-head">
+              <span class="quick-label">いまの記録</span>
+              <span class="quick-slot" id="quick-slot"></span>
+            </div>
+            <form id="quick-form" class="quick-form">
+              <input type="text" inputmode="numeric" pattern="[0-9]*" id="quick-value" placeholder="血糖値" maxlength="3" autocomplete="off" aria-label="血糖値">
+              <span class="unit">mg/dL</span>
+              <button type="submit" class="btn primary" id="quick-btn">記録</button>
+            </form>
+            <p class="quick-msg" id="quick-msg"></p>
+            <div class="today" id="today-chips"></div>
+          </div>
+
+          <div class="actions">
+            <a class="btn action" href="#/entry">
+              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              時間を変更して入力</a>
+            <a class="btn action" href="#/daily">
+              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M5 4h14v16H5zM8 9h8M8 13h8M8 17h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              備考欄の入力</a>
+            <a class="btn action" href="#/export">
+              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              データの出力</a>
+          </div>
+          <a class="import-link" id="import-link" href="#/import" hidden>過去のデータ（JSON）を取り込む</a>
+        </div>
+
+        <div class="card chart-card">
+          <div class="seg" id="period-seg" role="group" aria-label="表示期間">
+            <button data-days="7">1週間</button>
+            <button data-days="14">2週間</button>
+            <button data-days="31">1か月</button>
+            <button data-days="62">2か月</button>
+            <button data-days="93">3か月</button>
+          </div>
+          <div class="chart-wrap"><canvas id="chart" aria-label="血糖値グラフ"></canvas></div>
+          <div class="chart-empty" id="chart-empty" hidden>表示する記録がありません</div>
+          <div class="slot-toggles" id="slot-toggles"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 時間を変更して入力・修正 -->
+    <section class="view" id="view-entry" hidden>
+      <div class="two-col">
+        <div class="card">
+          <h2 id="entry-title">血糖値の入力</h2>
+          <form id="entry-form" novalidate>
+            <div class="row2">
+              <label class="field"><span>日付（記録日）</span><input type="date" id="entry-date" required></label>
+              <label class="field"><span>時刻</span><input type="time" id="entry-time" required></label>
+            </div>
+            <div class="field">
+              <span>時間帯</span>
+              <div class="seg slot-seg" id="entry-slot"></div>
+            </div>
+            <label class="field">
+              <span>血糖値（mg/dL）</span>
+              <input type="text" inputmode="numeric" pattern="[0-9]*" id="entry-value" maxlength="3" autocomplete="off" class="big">
+            </label>
+            <p class="hint" id="entry-actual"></p>
+            <div class="btn-row">
+              <button type="submit" class="btn primary" id="entry-save">保存</button>
+              <button type="button" class="btn" id="entry-cancel" hidden>新規入力に戻る</button>
+              <button type="button" class="btn danger" id="entry-delete" hidden>削除</button>
+            </div>
+          </form>
+        </div>
+        <div class="card">
+          <h2>記録一覧 <small>タップで修正</small></h2>
+          <div class="rec-table-wrap">
+            <table class="rec-table" id="rec-table">
+              <thead><tr><th>日付</th><th>朝</th><th>昼</th><th>夕</th><th>就寝前</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <button class="btn block ghost" id="rec-more">さらに表示</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 備考欄（毎日のデータ） -->
+    <section class="view" id="view-daily" hidden>
+      <div class="card narrow">
+        <div class="date-nav">
+          <button class="icon-btn" id="daily-prev" aria-label="前の日">‹</button>
+          <input type="date" id="daily-date">
+          <button class="icon-btn" id="daily-next" aria-label="次の日">›</button>
+        </div>
+        <div class="day-glucose" id="daily-glucose"></div>
+        <form id="daily-form" novalidate>
+          <label class="field"><span>歩数</span><input type="text" inputmode="numeric" id="d-walk" maxlength="6" placeholder="例：6500"></label>
+          <div class="field">
+            <span>血圧（朝）</span>
+            <div class="bp"><input type="text" inputmode="numeric" id="d-bpmaxm" maxlength="3" placeholder="最大" aria-label="朝の最大血圧"><span>/</span><input type="text" inputmode="numeric" id="d-bpminm" maxlength="3" placeholder="最小" aria-label="朝の最小血圧"></div>
+          </div>
+          <div class="field">
+            <span>血圧（夕方）</span>
+            <div class="bp"><input type="text" inputmode="numeric" id="d-bpmaxe" maxlength="3" placeholder="最大" aria-label="夕方の最大血圧"><span>/</span><input type="text" inputmode="numeric" id="d-bpmine" maxlength="3" placeholder="最小" aria-label="夕方の最小血圧"></div>
+          </div>
+          <label class="field"><span>体重（kg）</span><input type="text" inputmode="decimal" id="d-weight" maxlength="5" placeholder="例：62.5"></label>
+          <label class="field"><span>備考</span><textarea id="d-note" rows="3" maxlength="300"></textarea></label>
+          <p class="hint">すべて任意です。空欄のまま保存すると、その日のデータは削除されます。</p>
+          <div class="btn-row">
+            <button type="submit" class="btn primary" id="daily-save">保存</button>
+            <button type="button" class="btn danger" id="daily-clear">この日のデータを削除</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- データの出力（PDF） -->
+    <section class="view" id="view-export" hidden>
+      <div class="two-col export">
+        <div class="card">
+          <h2>医師提出用PDF</h2>
+          <form id="export-form" novalidate>
+            <div class="row2">
+              <label class="field"><span>開始日</span><input type="date" id="ex-from"></label>
+              <label class="field"><span>終了日</span><input type="date" id="ex-to"></label>
+            </div>
+            <div class="chip-row" id="ex-quick">
+              <button type="button" data-days="14">2週間</button>
+              <button type="button" data-days="28">4週間</button>
+              <button type="button" data-days="31">1か月</button>
+              <button type="button" data-days="62">2か月</button>
+              <button type="button" data-days="93">3か月</button>
+            </div>
+            <label class="field"><span>氏名</span><input type="text" id="ex-name" maxlength="40"></label>
+            <div class="field">
+              <span>インスリン変更</span>
+              <div class="seg" id="ex-changed">
+                <button type="button" data-v="1">有</button>
+                <button type="button" data-v="0">無</button>
+              </div>
+            </div>
+            <div class="field">
+              <span>インスリン単位数</span>
+              <div class="units">
+                <label>朝<input type="text" inputmode="decimal" id="ins-morning" maxlength="5"></label>
+                <label>昼<input type="text" inputmode="decimal" id="ins-noon" maxlength="5"></label>
+                <label>夕<input type="text" inputmode="decimal" id="ins-evening" maxlength="5"></label>
+                <label>就寝前<input type="text" inputmode="decimal" id="ins-night" maxlength="5"></label>
+              </div>
+            </div>
+            <label class="check"><input type="checkbox" id="ex-empty" checked> 記録のない日も出力する</label>
+            <div class="btn-row">
+              <button type="button" class="btn" id="ex-preview">プレビュー</button>
+              <button type="submit" class="btn primary" id="ex-pdf">PDFを作成</button>
+            </div>
+            <p class="hint" id="ex-status"></p>
+          </form>
+        </div>
+        <div class="card preview-card">
+          <h2>プレビュー</h2>
+          <div class="preview" id="ex-previewbox"><p class="hint">「プレビュー」を押すと表示されます。</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 初回データ取り込み -->
+    <section class="view" id="view-import" hidden>
+      <div class="card narrow">
+        <h2>過去データの取り込み（初回のみ）</h2>
+        <p class="hint">以前のアプリから出力したJSONファイルを選択するか、内容を貼り付けてください。データが1件も登録されていない場合のみ取り込めます。</p>
+        <label class="field"><span>JSONファイル</span><input type="file" id="imp-file" accept=".json,application/json,text/plain"></label>
+        <label class="field"><span>または貼り付け</span><textarea id="imp-text" rows="8" spellcheck="false" placeholder='[{"date":"2025/03/29","content":{...}}]'></textarea></label>
+        <div class="imp-summary" id="imp-summary"></div>
+        <div class="btn-row">
+          <button class="btn" id="imp-check">内容を確認</button>
+          <button class="btn primary" id="imp-run" disabled>取り込む</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="loading" id="loading" hidden><div class="spinner"></div></div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <div id="pdf-stage" aria-hidden="true"></div>
+
+  <script src="js/config.js"></script>
+  <script src="lib/chart.umd.min.js"></script>
+  <script src="lib/html2canvas.min.js" defer></script>
+  <script src="lib/jspdf.umd.min.js" defer></script>
+  <script src="js/util.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/chart.js"></script>
+  <script src="js/pdf.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
