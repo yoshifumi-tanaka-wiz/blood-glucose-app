@@ -139,6 +139,11 @@ input.big { font-size: 26px; font-weight: 700; text-align: center; letter-spacin
 
 .chart-card { padding: 12px 12px 14px; }
 .chart-wrap { position: relative; height: 280px; margin: 12px 0 8px; }
+.chart-scroll { height: 100%; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
+.chart-scroll::-webkit-scrollbar { height: 6px; }
+.chart-scroll::-webkit-scrollbar-thumb { background: #CDD3DC; border-radius: 3px; }
+.chart-inner { position: relative; height: calc(100% - 8px); min-width: 100%; }
+.chart-yaxis { position: absolute; left: 0; top: 0; pointer-events: none; }
 .chart-empty { text-align: center; color: var(--muted); font-size: 14px; margin: -150px 0 130px; position: relative; pointer-events: none; }
 .slot-toggles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 .toggle {

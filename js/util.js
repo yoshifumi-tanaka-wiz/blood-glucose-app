@@ -3,7 +3,7 @@
 
   const SLOTS = ['morning', 'noon', 'evening', 'night'];
   const SLOT_LABEL = { morning: '朝', noon: '昼', evening: '夕', night: '就寝前' };
-  const SLOT_COLOR = { morning: '#E8833A', noon: '#2E9E6A', evening: '#2F6FD6', night: '#8A4FC7' };
+  const SLOT_COLOR = { morning: '#2E9E5B', noon: '#D64545', evening: '#EE8A2F', night: '#2F6FD6' };
   const DAY_START_HOUR = 5;
 
   const pad = n => ('0' + n).slice(-2);

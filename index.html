@@ -87,7 +87,10 @@
             <button data-days="62">2か月</button>
             <button data-days="93">3か月</button>
           </div>
-          <div class="chart-wrap"><canvas id="chart" aria-label="血糖値グラフ"></canvas></div>
+          <div class="chart-wrap">
+            <div class="chart-scroll"><div class="chart-inner"><canvas id="chart" aria-label="血糖値グラフ"></canvas></div></div>
+            <canvas class="chart-yaxis" aria-hidden="true"></canvas>
+          </div>
           <div class="chart-empty" id="chart-empty" hidden>表示する記録がありません</div>
           <div class="slot-toggles" id="slot-toggles"></div>
         </div>

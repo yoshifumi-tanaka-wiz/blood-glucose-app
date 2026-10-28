@@ -4,13 +4,15 @@
   const $ = id => document.getElementById(id);
   const CACHE_KEY = 'bg_cache';
   const PREF_KEY = 'bg_prefs';
-  const INS_KEY = 'bg_insulin';
+  const OLD_INS_KEY = 'bg_insulin'; // 旧バージョンで端末に保存していたインスリン値（起動時に削除）
   const DEFAULT_TIME = { morning: '07:00', noon: '12:00', evening: '18:00', night: '22:00' };
 
   const prefs = Object.assign({ days: 7, visible: { morning: true, noon: true, evening: true, night: true } }, U.store.get(PREF_KEY, {}));
 
   const S = {
-    data: null,          // { glucose:[], daily:[], patientName, canImport }
+    data: null,          // { glucose:[], daily:[], canImport }（端末にキャッシュする）
+    exportSettings: null, // { name, insulin }（氏名を含むため端末には保存しない）
+    exportFilled: false,
     loadedFrom: null,    // 取得済みの最古の記録日
     view: null,
     params: {},
@@ -24,7 +26,10 @@
   function nowSlot() { return U.slotOfTime(U.fmtTime(new Date())); }
 
   function saveCache() {
-    if (S.data) U.store.set(CACHE_KEY, { data: S.data, loadedFrom: S.loadedFrom, at: Date.now() });
+    if (!S.data) return;
+    // 氏名などの個人情報は端末（localStorage）に残さない
+    const data = { glucose: S.data.glucose, daily: S.data.daily, canImport: S.data.canImport };
+    U.store.set(CACHE_KEY, { data: data, loadedFrom: S.loadedFrom, at: Date.now() });
   }
 
   function loading(on) { $('loading').hidden = !on; }
@@ -77,6 +82,8 @@
   // ====================== 認証・起動 ======================
   function showLogin() {
     S.data = null;
+    S.exportSettings = null;
+    S.exportFilled = false;
     $('topbar').hidden = true;
     document.querySelectorAll('.view').forEach(v => { v.hidden = v.id !== 'view-login'; });
     setTimeout(() => $('login-pass').focus(), 50);
@@ -86,7 +93,8 @@
     if (!silent) loading(true);
     try {
       const r = await API.call('init');
-      S.data = { glucose: r.glucose, daily: r.daily, patientName: r.patientName, canImport: r.canImport };
+      S.data = { glucose: r.glucose, daily: r.daily, canImport: r.canImport };
+      S.exportSettings = r.exportSettings || null;
       S.loadedFrom = r.from;
       saveCache();
       route();
@@ -99,10 +107,12 @@
 
   function boot() {
     bindEvents();
+    U.store.del(OLD_INS_KEY);
     if (!API.hasToken()) { showLogin(); return; }
     const cache = U.store.get(CACHE_KEY, null);
     if (cache && cache.data) {
-      S.data = cache.data;
+      S.data = { glucose: cache.data.glucose, daily: cache.data.daily, canImport: cache.data.canImport };
+      saveCache(); // 旧キャッシュに含まれていた氏名を消す
       S.loadedFrom = cache.loadedFrom;
       route();
       refresh(true);
@@ -417,25 +427,41 @@
   }
 
   // ====================== PDF出力 ======================
-  let exChanged = null;
+  let exChanged = false;
 
   function renderExport(changed) {
-    if (!changed) return;
-    const t = today();
-    $('ex-to').value = U.toInputDate(t);
-    $('ex-from').value = U.toInputDate(U.addDays(t, -13));
-    $('ex-name').value = S.data.patientName || '';
-    const ins = U.store.get(INS_KEY, {});
-    ['morning', 'noon', 'evening', 'night'].forEach(k => { $('ins-' + k).value = ins[k] == null ? '' : ins[k]; });
-    exChanged = ins.changed === undefined ? null : !!ins.changed;
-    renderExChanged();
-    $('ex-status').textContent = '';
-    $('ex-previewbox').innerHTML = '<p class="hint">「プレビュー」を押すと表示されます。</p>';
+    if (changed) {
+      const t = today();
+      $('ex-to').value = U.toInputDate(t);
+      $('ex-from').value = U.toInputDate(U.addDays(t, -13));
+      $('ex-name').value = '';
+      ['morning', 'noon', 'evening', 'night'].forEach(k => { $('ins-' + k).value = ''; });
+      exChanged = false; // インスリン変更は毎回「無」から
+      renderExChanged();
+      $('ex-status').textContent = '';
+      $('ex-previewbox').innerHTML = '<p class="hint">「プレビュー」を押すと表示されます。</p>';
+      S.exportFilled = false;
+    }
+    fillExportSettings();
+  }
+
+  /** 前回PDFを作成した時の氏名・インスリン単位数を入れる（サーバーから取得できた時点で1回だけ） */
+  function fillExportSettings() {
+    if (S.exportFilled || !S.exportSettings) return;
+    const es = S.exportSettings;
+    const ids = ['ex-name', 'ins-morning', 'ins-noon', 'ins-evening', 'ins-night'];
+    if (ids.some(id => $(id).value !== '')) { S.exportFilled = true; return; } // 入力済みなら上書きしない
+    $('ex-name').value = es.name || '';
+    ['morning', 'noon', 'evening', 'night'].forEach(k => {
+      const v = es.insulin && es.insulin[k];
+      $('ins-' + k).value = v == null ? '' : v;
+    });
+    S.exportFilled = true;
   }
 
   function renderExChanged() {
     document.querySelectorAll('#ex-changed button').forEach(b => {
-      b.classList.toggle('on', exChanged !== null && (b.dataset.v === '1') === exChanged);
+      b.classList.toggle('on', (b.dataset.v === '1') === exChanged);
     });
   }
 
@@ -445,7 +471,6 @@
     if (!from || !to) return { error: '期間を入力してください' };
     if (from > to) return { error: '開始日が終了日より後になっています' };
     if (U.diffDays(from, to) > 366) return { error: '期間は1年以内で指定してください' };
-    if (exChanged === null) return { error: 'インスリン変更の有／無を選んでください' };
     const ins = { changed: exChanged };
     for (const k of ['morning', 'noon', 'evening', 'night']) {
       const s = U.normalize($('ins-' + k).value);
@@ -458,10 +483,6 @@
   async function prepareExport() {
     const f = readExportForm();
     if (f.error) { U.toast(f.error, 'error'); return null; }
-    U.store.set(INS_KEY, f.insulin);
-    if (f.name !== (S.data.patientName || '')) {
-      API.call('setPatientName', { name: f.name }).then(() => { S.data.patientName = f.name; saveCache(); }).catch(() => {});
-    }
     $('ex-status').textContent = 'データを取得しています…';
     const res = await API.call('getRange', { from: f.from, to: f.to });
     const rows = BGPdf.buildRows(res, f.from, f.to, f.includeEmpty);
@@ -504,6 +525,15 @@
         const name = '血糖値記録_' + r.f.from.replace(/\//g, '') + '-' + r.f.to.replace(/\//g, '') + '.pdf';
         await BGPdf.makePdf(r.pages, name, (i, n) => { $('ex-status').textContent = 'PDFを作成しています…（' + i + '/' + n + 'ページ）'; });
         $('ex-status').textContent = 'PDFを作成しました（' + name + '）';
+        // 次回のために氏名・インスリン単位数をサーバーに保存（インスリン変更の有無は保存しない）
+        const ins = r.f.insulin;
+        const settings = { name: r.f.name, insulin: { morning: ins.morning, noon: ins.noon, evening: ins.evening, night: ins.night } };
+        try {
+          const s = await API.call('saveExportSettings', settings);
+          S.exportSettings = s.exportSettings;
+        } catch (e) {
+          U.toast('PDFは作成しましたが、氏名・単位数の保存に失敗しました', 'error');
+        }
       } catch (e) { errToast(e); }
     });
   }
